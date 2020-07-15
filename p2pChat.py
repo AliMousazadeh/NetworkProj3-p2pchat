@@ -1,12 +1,10 @@
-import os
 import socket
-import sys
 from threading import Thread
 import time
-import random
 
 targetDevice = []
 BUFFER_SIZE = 4096
+receiveBroadcastPort = 50000
 
 
 def receiveBroadcastMessage():
@@ -23,7 +21,7 @@ def SendBroadcastMessage():
     while True:
         send_message = "hello"
         sendBroadcastSocket.sendto(
-            send_message.encode(), ('<broadcast>', 37020))
+            send_message.encode(), ('<broadcast>', receiveBroadcastPort))
         time.sleep(1)
 
 
@@ -34,8 +32,6 @@ def letsChatReceive():
         data, address = sendBroadcastSocket.recvfrom(BUFFER_SIZE)
         dataStr = data.decode().split("-")
         if (dataStr[0] == "let's chat"):
-            print("let's chat received")
-
             tcpSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             tcpSocket.connect((address[0], int(dataStr[1])))
 
@@ -65,7 +61,7 @@ receiveBroadcastSocket = socket.socket(
     socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
 receiveBroadcastSocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 receiveBroadcastSocket.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-receiveBroadcastSocket.bind(("", 37020))
+receiveBroadcastSocket.bind(("", receiveBroadcastPort))
 
 global sendBroadcastSocket
 sendBroadcastSocket = socket.socket(
@@ -92,19 +88,20 @@ letsChatReceiveThread.start()
 while(len(targetDevice) < 2):
     time.sleep(0.1)
 
-s = socket.socket()
-s.settimeout(1)
-port = random.randint(5000, 6000)
-s.bind(('', port))
-s.listen()
-message = "let's chat-" + str(port)
+finalSocketTCP = socket.socket()
+finalSocketTCP.bind(('', 0))
+finalSocketTCP.listen()
+message = "let's chat-" + str(finalSocketTCP.getsockname()[1])
 sendBroadcastSocket.sendto(
     message.encode(), targetDevice[1])
-c, addr = s.accept()
-print("Connection Established")
+finalConnection, addr = finalSocketTCP.accept()
 
-tcpSendThread = Thread(target=tcpSend, args=(c,))
-tcpReceiveThread = Thread(target=tcpReceive, args=(c,))
+print("Enjoy your chat!")
+print("****************")
+print()
+
+tcpSendThread = Thread(target=tcpSend, args=(finalConnection,))
+tcpReceiveThread = Thread(target=tcpReceive, args=(finalConnection,))
 
 tcpSendThread.start()
 tcpReceiveThread.start()
